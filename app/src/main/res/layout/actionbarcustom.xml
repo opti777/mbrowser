@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="?android:attr/actionBarSize"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:orientation="horizontal"
+	tools:showIn="@layout/app_bar_main">
+	
+    <EditText 
+        android:id="@+id/editSearch"  
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:maxLines="1"
+        android:scrollHorizontally="true"
+        android:ellipsize="end"
+        android:layout_weight="1"
+        android:layout_toLeftOf="@+id/actionbarTabs"
+        android:layout_marginRight="2dp"
+        android:layout_marginLeft="2dp"
+        android:layout_alignParentLeft="true"
+        android:layout_marginTop="2dp"
+        android:drawablePadding="10dp"
+        android:paddingLeft="15dp"
+        android:imeOptions="actionSearch"
+        android:selectAllOnFocus="true"
+        android:hint="search...">
+    </EditText>
+    
+	<TextView
+        android:id="@+id/actionbarTabs"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+		android:layout_marginTop="8dp"
+        android:layout_marginBottom="2dp"
+		android:layout_marginLeft="2dp"
+        android:layout_marginRight="1dp"
+		
+        android:layout_gravity="center_vertical"
+		android:gravity="center"
+		android:textSize="22sp"
+		android:clickable="true"
+		android:text="1"
+		android:textStyle="bold"
+		android:layout_alignParentRight="true"
+		android:background="@drawable/border"
+		/>
+	
+	
+	
+</RelativeLayout>
