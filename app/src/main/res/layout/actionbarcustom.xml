@@ -6,7 +6,7 @@
 	android:orientation="horizontal"
 	tools:showIn="@layout/app_bar_main">
 	
-    <EditText 
+    <AutoCompleteTextView
         android:id="@+id/editSearch"  
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
@@ -25,7 +25,7 @@
         android:imeOptions="actionSearch"
         android:selectAllOnFocus="true"
         android:hint="search...">
-    </EditText>
+    </AutoCompleteTextView>
     
 	<TextView
         android:id="@+id/actionbarTabs"

@@ -6,11 +6,15 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.MailTo;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Message;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.view.KeyEvent;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -20,6 +24,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.inputmethod.EditorInfo;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
 import android.webkit.ValueCallback;
@@ -28,8 +33,13 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.AutoCompleteTextView;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.ByteArrayInputStream;
 import java.net.URISyntaxException;
@@ -46,6 +56,9 @@ public class MainActivity extends AppCompatActivity
     private WebView mWebView;
     private	WebSettings mSettings;
     private	String mDefaultUserAgent;
+    private AutoCompleteTextView editSearchBox;
+    private	JsonSearchTask jsonSearch;
+    private ListView sListView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +77,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        final DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.setDrawerListener(toggle);
@@ -72,7 +85,7 @@ public class MainActivity extends AppCompatActivity
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
-
+        sListView = (ListView)findViewById(R.id.suggestlist);
         m_lang = getResources().getConfiguration().locale.getLanguage();
 
 
@@ -86,6 +99,60 @@ public class MainActivity extends AppCompatActivity
         mProgress = (ProgressBar) findViewById(R.id.progress_bar);
         mProgress.setVisibility(View.GONE);
         mPackageName = mActivity.getPackageName();
+
+
+        editSearchBox=(AutoCompleteTextView) findViewById(R.id.editSearch);
+        editSearchBox.addTextChangedListener(new TextWatcher(){
+
+            public void afterTextChanged(Editable s){
+                String newText=s.toString();
+                if (newText.length() > 0 & !(newText.startsWith("http")) & !(newText.startsWith("www")))
+                {
+              //      drawer.closeDrawer(drawer);
+                    if (sListView.getParent() == null)drawer.addView(sListView);
+                    try
+                    {
+                        if (jsonSearch != null)
+                        {
+
+                            if (jsonSearch.getStatus() == AsyncTask.Status.RUNNING)
+                            {
+                                jsonSearch.cancel(true);
+                            }
+                        }//not  null
+
+                        jsonSearch = new JsonSearchTask(mActivity, newText, sListView, editSearchBox);
+                        jsonSearch.execute(newText);
+
+                        //  return true;
+                    }
+                    catch (Exception e)
+                    {
+                        Toast.makeText(mActivity, e.toString(), Toast.LENGTH_SHORT).show();
+                        //   return false;
+                    }
+                }
+                  else return;
+            }
+
+            public void beforeTextChanged(CharSequence s, int start,int count,int after){}
+            public void onTextChanged(CharSequence s, int start,int before,int count){
+                // searchQ(s.toString());
+            }
+
+        });
+        editSearchBox.setOnEditorActionListener(
+                new EditText.OnEditorActionListener() {
+                    @Override
+                    public boolean onEditorAction(TextView v, int actionId,KeyEvent event) {
+                        if (actionId== EditorInfo.IME_ACTION_SEARCH) {
+                            searchQ(v.getEditableText().toString());
+
+
+                        }
+                        return false;
+                    }
+                });
         initializeWebView();
 
     }
@@ -146,6 +213,42 @@ public class MainActivity extends AppCompatActivity
         mWebView.setOverScrollMode(View.OVER_SCROLL_ALWAYS);
 
     }
+    private void searchQ(String query)
+    {
+     //   mDrawerLayout.closeDrawer(mDrawer);
+
+/*
+        if (!mWebView.isShown())
+        {
+            showTab(mCurrentView);
+        }
+
+        if (sListView.getParent() != null)mDrawerLayout.removeView(sListView);
+*/
+        if (query.startsWith("http://") || query.startsWith("https://") || query.startsWith("file:///"))
+        {
+            mWebView.loadUrl(query);
+        }
+        else if (query.startsWith("www.") || query.startsWith("192."))
+        {
+            mWebView.loadUrl("http://" + query);
+        }
+        else if (query.startsWith("m."))
+        {
+            mWebView.loadUrl("http://" + query);
+        }
+        else
+        {
+            mWebView.loadUrl("http://www.google.com/search?&source=android-browser&hl=" + m_lang + "&q=" + query);
+        }//end show
+        //if (searchView != null)
+        //{
+        //searchView.setQuery(query, false);
+        //searchView.clearFocus();
+        //}
+
+    }
+
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);

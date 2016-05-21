@@ -26,6 +26,16 @@
 
      </android.support.v7.widget.Toolbar>
 
+        <ListView
+            android:id="@+id/suggestlist"
+            android:layout_width="260dp"
+            android:layout_height="wrap_content"
+            android:divider="#bababa"
+            android:dividerHeight="1dp"
+            android:choiceMode="singleChoice"
+
+            />
+
     </android.support.design.widget.AppBarLayout>
 
     <include layout="@layout/content_main" />
