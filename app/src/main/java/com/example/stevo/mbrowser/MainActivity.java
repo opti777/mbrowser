@@ -1,20 +1,28 @@
 package com.example.stevo.mbrowser;
 
 import android.app.AlertDialog;
+import android.app.SearchManager;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.MatrixCursor;
 import android.graphics.Bitmap;
 import android.net.MailTo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Message;
+import android.provider.BaseColumns;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.TypedValue;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -24,7 +32,9 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
 import android.webkit.ValueCallback;
@@ -33,16 +43,28 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.AdapterView;
 import android.widget.AutoCompleteTextView;
+import android.widget.CursorAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLEncoder;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -58,16 +80,16 @@ public class MainActivity extends AppCompatActivity
     private	String mDefaultUserAgent;
     private AutoCompleteTextView editSearchBox;
     private	JsonSearchTask jsonSearch;
-    private ListView sListView;
+    Toolbar toolbar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+   /*     FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -76,7 +98,7 @@ public class MainActivity extends AppCompatActivity
                 mWebView.loadUrl("http://www.google.hr");
             }
         });
-
+*/
         final DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
@@ -85,7 +107,7 @@ public class MainActivity extends AppCompatActivity
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
-        sListView = (ListView)findViewById(R.id.suggestlist);
+      //  sListView = (ListView)findViewById(R.id.suggestlist);
         m_lang = getResources().getConfiguration().locale.getLanguage();
 
 
@@ -102,14 +124,15 @@ public class MainActivity extends AppCompatActivity
 
 
         editSearchBox=(AutoCompleteTextView) findViewById(R.id.editSearch);
+        editSearchBox.setThreshold(1);
         editSearchBox.addTextChangedListener(new TextWatcher(){
 
             public void afterTextChanged(Editable s){
                 String newText=s.toString();
                 if (newText.length() > 0 & !(newText.startsWith("http")) & !(newText.startsWith("www")))
                 {
-              //      drawer.closeDrawer(drawer);
-                    if (sListView.getParent() == null)drawer.addView(sListView);
+                    drawer.closeDrawer(GravityCompat.START);
+                 //   if (sListView.getParent() == null)drawer.addView(sListView);
                     try
                     {
                         if (jsonSearch != null)
@@ -121,7 +144,7 @@ public class MainActivity extends AppCompatActivity
                             }
                         }//not  null
 
-                        jsonSearch = new JsonSearchTask(mActivity, newText, sListView, editSearchBox);
+                        jsonSearch = new JsonSearchTask(mActivity, newText, editSearchBox);
                         jsonSearch.execute(newText);
 
                         //  return true;
@@ -153,12 +176,20 @@ public class MainActivity extends AppCompatActivity
                         return false;
                     }
                 });
+      /*  editSearchBox.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+            @Override
+            public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
+                                    long arg3) {
+                searchQ(arg0.getItemAtPosition(arg2).toString());
+            }
+            });
+            */
         initializeWebView();
 
     }
 
-    private void initializeWebView()
-    {
+    private void initializeWebView() {
         mWebView.setWebChromeClient(new AwbChromeClient());
         mWebView.setWebViewClient(new AwbWebClient());
 
@@ -173,7 +204,7 @@ public class MainActivity extends AppCompatActivity
         mDefaultUserAgent = mSettings.getUserAgentString();
 
         mSettings.setSupportMultipleWindows(true);
-        mSettings.setJavaScriptEnabled( true);
+        mSettings.setJavaScriptEnabled(true);
 
         //multi tab
         mSettings.setJavaScriptCanOpenWindowsAutomatically(false);
@@ -183,7 +214,7 @@ public class MainActivity extends AppCompatActivity
         mSettings.setSupportZoom(true);
         mSettings.setBuiltInZoomControls(true);
         mSettings.setDisplayZoomControls(false);
-        if (API < 18)mSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        if (API < 18) mSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
         mSettings.setSaveFormData(true);
 
         mSettings.setAppCacheEnabled(true);
@@ -212,7 +243,93 @@ public class MainActivity extends AppCompatActivity
 
         mWebView.setOverScrollMode(View.OVER_SCROLL_ALWAYS);
 
+
+        // onTouch
+        mWebView.setOnTouchListener(new View.OnTouchListener() {
+            int mLocation = 0;
+            int eventY = 0;
+            int mAction = 0;
+            long mTime = 0;
+            int currY = 0;
+            int oldY = 0;
+
+            @Override
+            public boolean onTouch(final View view, MotionEvent event) {
+              //  if (!AutoHide) return false;
+                if (view != null && !view.hasFocus()) {
+                    view.requestFocus();
+                }
+
+                //	final	int actBarHeight=mActivity.getActionBar().getHeight();
+                mAction = event.getAction();
+
+
+                //Down
+
+                if (mAction == MotionEvent.ACTION_DOWN) {
+                    eventY = (int) event.getY();
+                    mLocation = eventY;
+                    mTime = System.currentTimeMillis();
+                    oldY = view != null ? view.getScrollY() : 0;
+
+                }
+
+                //UP
+                else if (mAction == MotionEvent.ACTION_UP || mAction == MotionEvent.ACTION_CANCEL) {
+                    boolean actBarShow = toolbar.isShown();  //mActivity.isActionBarShowing();
+                    boolean actModeShow = toolbar.hasExpandedActionView(); //mActivity.isActionModeShowing();
+
+                    TypedValue tv = new TypedValue();
+                    mActivity.getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true);
+                    int actBarHeight = mActivity.getResources().getDimensionPixelSize(tv.resourceId);
+
+                    currY = view != null ? view.getScrollY() : 0;
+                    eventY = (int) event.getY();
+
+                    //Show
+                    if (!actBarShow & (System.currentTimeMillis() - mTime) > 130 & ((currY < actBarHeight & (eventY - mLocation) > 30) || (currY > actBarHeight & (oldY - currY) > actBarHeight)) & !actModeShow) {
+                       getSupportActionBar().show(); // mActivity.showActionBar();
+
+                        assert view != null;
+                        view.scrollTo(view.getScrollX(), currY + actBarHeight);
+
+                    }
+                    //Hide
+                    else if (actBarShow & (mLocation - eventY) > 30 & (currY > actBarHeight || currY == 0) & !actModeShow) {
+                        if ((System.currentTimeMillis() - mTime) > 160) {
+                           getSupportActionBar().hide();;
+                            // mActivity.hideActionBar();
+                            assert view != null;
+
+                            if (ifNoBottom()) {
+                                view.scrollTo(view.getScrollX(), view.getScrollY() - actBarHeight);
+                            }
+                        }
+
+                    }
+                    mTime = 0;
+                    mLocation = 0;
+
+                }
+
+                return false;
+            }
+
+        });
     }
+    //end ontouch
+    boolean ifNoBottom() {
+        TypedValue tv = new TypedValue();
+        mActivity.getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true);
+
+        int actBarHeight = mActivity.getResources().getDimensionPixelSize(tv.resourceId);
+        int height = (int) Math.floor(mWebView.getContentHeight() * mWebView.getScale());
+        int webViewHeight = mWebView.getMeasuredHeight();
+        if((mWebView.getScrollY() + webViewHeight) >=( height-actBarHeight))
+            return false;
+        else return true;
+    }
+
     private void searchQ(String query)
     {
      //   mDrawerLayout.closeDrawer(mDrawer);
@@ -588,5 +705,170 @@ public class MainActivity extends AppCompatActivity
         }
         */
     }
+   private class JsonSearchTask extends AsyncTask<String, Void, Cursor>
+    {
 
+        private	String search_item="";
+        private Context context;
+        //private	ListView sListView;
+        private	AutoCompleteTextView editSearchBox;
+        private MatrixCursor cursor;
+        private String m_lang;
+
+        JsonSearchTask(Context context, String item, AutoCompleteTextView editSearchBox)
+        {
+            try
+            {
+                this.context = context;
+                //this.sListView = sListView;
+                this.editSearchBox = editSearchBox;
+                search_item = URLEncoder.encode(item, "utf-8");
+		/*
+			InputMethodManager imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);
+			InputMethodSubtype ims = imm.getCurrentInputMethodSubtype();
+			String localeString = ims.getLocale();
+			Locale locale = new Locale(localeString);
+			m_lang = locale.getLanguage();
+		*/
+                m_lang = context.getResources().getConfiguration().locale.getLanguage();
+
+
+                if (m_lang == null || m_lang.length() <= 0)
+                    m_lang = "en";
+
+                String[] COLUMNS = {
+                        BaseColumns._ID,
+                        SearchManager.SUGGEST_COLUMN_TEXT_1
+                };
+                cursor = new MatrixCursor(COLUMNS);
+            }
+            catch (UnsupportedEncodingException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        protected Cursor doInBackground(String... arg0)
+        {
+            try
+            {
+                String	result = sendUrlQuery(search_item);
+                JSONArray city= new JSONArray(result);
+                JSONArray parsedResult =  city.getJSONArray(1);
+
+                for (int i=0;i < 6;i++)
+                {
+                    if (isCancelled())
+                    {  return null; }
+                    String citi =parsedResult.getString(i);
+                    cursor.addRow(new String[]{ String.valueOf(i + 1), citi});
+                }
+
+            }
+            catch (JSONException | IOException e)
+            {
+                e.printStackTrace();
+            }
+            return cursor;
+        }
+        private String sendUrlQuery(String query) throws IOException
+        {
+            String result = "";
+
+            URL downUrl = new URL(
+                    "http://google.com/complete/search?q=" + query
+                            + "&client=android&hl=" + m_lang + "&oe=utf-8");
+
+            BufferedReader bufferedReader = new BufferedReader(
+                    new InputStreamReader(downUrl.openStream()));
+
+            String line ;
+            while ((line = bufferedReader.readLine()) != null)
+            {
+                result += line;
+            }
+            bufferedReader.close();
+
+
+            return result;
+        }
+        @Override
+        protected void onPostExecute(Cursor cursor)
+        {
+
+            SuggestionsListAdapter mSuggestionsAdapter = new  SuggestionsListAdapter(context, cursor);
+
+            //	sListView.setAdapter(mSuggestionsAdapter);
+            editSearchBox.setAdapter(mSuggestionsAdapter);
+            mSuggestionsAdapter.notifyDataSetChanged();
+            super.onPostExecute(cursor);
+        }
+        private class SuggestionsListAdapter extends CursorAdapter
+        {
+            private    class   ViewHolder
+            {
+                TextView   textSuggest;
+                ImageView arrowSuggest;
+
+            }
+            public SuggestionsListAdapter(Context context, Cursor c)
+            {
+                super(context, c, 0);
+
+            }
+
+            @Override
+            public void bindView(View view, Context context, Cursor cursor)
+            {
+                ViewHolder holder  =   (ViewHolder)    view.getTag();
+                final int textIndex1 = cursor.getColumnIndex(SearchManager.SUGGEST_COLUMN_TEXT_1);
+
+                final	String ts=cursor.getString(textIndex1);
+                holder.textSuggest.setText(ts,TextView.BufferType.EDITABLE);
+                holder.textSuggest.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view)
+                    {
+                        if (editSearchBox != null)
+                        {
+                            editSearchBox.setText(ts);
+                            searchQ(ts);
+                            mWebView.requestFocus();
+                            editSearchBox.dismissDropDown();
+
+
+
+                        }
+
+                    }
+                });
+                holder.arrowSuggest.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view)
+                    {
+                        if (editSearchBox != null)
+                        {
+                            editSearchBox.setText(ts);
+
+                        }
+
+                    }
+                });
+            }
+
+            @Override
+            public View newView(Context context, Cursor cursor, ViewGroup parent)
+            {
+                View   view    =   LayoutInflater.from(context).inflate(R.layout.suggest_row,  null);
+                ViewHolder holder  =   new ViewHolder();
+                holder.textSuggest    =   (TextView)  view.findViewById(R.id.textSuggest);
+                holder.arrowSuggest    =   (ImageView)  view.findViewById(R.id.arrowSuggest);
+                view.setTag(holder);
+
+                return view;
+            }
+        }
+
+    }// End Json class
 }
